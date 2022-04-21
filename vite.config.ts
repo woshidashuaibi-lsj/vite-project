@@ -4,6 +4,8 @@ import { normalizePath } from "vite";
 import autoprefixer from "autoprefixer";
 import pxtorem from "postcss-pxtorem";
 import cssnano from "cssnano";
+import svgr from "vite-plugin-svgr";
+import viteImagemin from "vite-plugin-imagemin";
 // 如果类型报错，需要安装 @types/node: pnpm i @types/node -D
 import path from "path";
 
@@ -11,8 +13,14 @@ import path from "path";
 // 用 normalizePath 解决 window 下的路径问题
 const variablePath = normalizePath(path.resolve("./src/variable.scss"));
 
+// 是否为生产环境，在生产环境一般会注入 NODE_ENV 这个环境变量，见下面的环境变量文件配置
+const isProduction = process.env.NODE_ENV === "production";
+// 填入项目的 CDN 域名地址
+const CDN_URL = "https://sanyuan.cos.ap-beijing.myqcloud.com";
+
 // https://vitejs.dev/config/
 export default defineConfig({
+	base: isProduction ? CDN_URL : "/",
 	// css 相关的配置
 	css: {
 		// 配置类名展示
@@ -21,6 +29,7 @@ export default defineConfig({
 			// 其中，name 表示当前文件名，local 表示类名
 			generateScopedName: "[name]__[local]___[hash:base64:5]",
 		},
+
 		// 将某个scss文件全局话，即全都引入这个文件
 		preprocessorOptions: {
 			scss: {
@@ -47,6 +56,12 @@ export default defineConfig({
 			],
 		},
 	},
+	resolve: {
+		// 别名配置
+		alias: {
+			"@assets": path.join(__dirname, "src/assets"),
+		},
+	},
 	plugins: [
 		react({
 			babel: {
@@ -64,5 +79,36 @@ export default defineConfig({
 			// 通过 `@emotion/react` 包编译 emotion 中的特殊 jsx 语法
 			// jsxImportSource: "@emotion/react",
 		}),
+		svgr(),
+		viteImagemin({
+			// 无损压缩配置，无损压缩下图片质量不会变差
+			optipng: {
+				optimizationLevel: 7,
+			},
+			// 有损压缩配置，有损压缩下图片质量可能会变差
+			pngquant: {
+				quality: [0.8, 0.9],
+			},
+			// svg 优化
+			svgo: {
+				plugins: [
+					{
+						name: "removeViewBox",
+					},
+					{
+						name: "removeEmptyAttrs",
+						active: false,
+					},
+				],
+			},
+		}),
 	],
+
+	json: {
+		stringify: true,
+	},
+	build: {
+		// 8 KB
+		assetsInlineLimit: 8 * 1024,
+	},
 });
